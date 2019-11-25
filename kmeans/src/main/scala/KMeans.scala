@@ -42,14 +42,14 @@ object KMeans {
       System.err.println("Usage: SparkKMeans <file> <k> <convergeDist>")
       System.exit(1)
     }
-    
+
 
     val spark = SparkSession
       .builder
       .appName("KMeans")
       .master("local[4]")
       .getOrCreate()
-    val lines = spark.read.textFile(args(0)).rdd.filter(data => data.split(",").length == 10)
+    val lines = spark.read.textFile(args(0)).rdd.filter(data => data.split(",").length == 2)
     val data = lines.map(parseVector _).cache()
 
 

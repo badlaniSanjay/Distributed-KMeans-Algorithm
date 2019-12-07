@@ -54,8 +54,10 @@ object KMeans {
     val data = lines.map(parseVector _).cache()
     var K = 1
     val convergeDist = args(2).toDouble
+    var sseValues = new Array[Double](11)
 
-    while (K <= 10) {
+    while (K <=10) {
+      var SSE = 0.0
       val kPoints = data.takeSample(withReplacement = false, K, 42)
       var tempDist = 1.0
       var closest = data.map(p => (closestPoint(p, kPoints), (p, 1)))
@@ -63,9 +65,8 @@ object KMeans {
       while (tempDist > convergeDist) {
         //Compute the closest center to each point
         closest = data.map(p => (closestPoint(p, kPoints), (p, 1)))
-
         val pointStats = closest.reduceByKey { case ((p1, c1), (p2, c2)) => (p1 + p2, c1 + c2) }
-
+        val pointsInACluster = closest.groupByKey().mapValues(_.map(_._1))
         val newPoints = pointStats.map { pair =>
           (pair._1, pair._2._1 * (1.0 / pair._2._2))
         }.collectAsMap()
@@ -80,15 +81,35 @@ object KMeans {
           kPoints(newP._1) = newP._2
         }
 
+        //Centers are in the K points
+        //Actual points are in closest
+
+        SSE = 0.0
+        for (i <- 0 until K) {
+          //pointsInACluster.lookup(i).foreach(x => squaredDistance(x, newPoints(i)))
+          var list = pointsInACluster.lookup(i)
+          for (l <- list){
+            for(litem <- l){
+              SSE += squaredDistance(litem, newPoints(i))
+            }
+          }
+
+        }
+        println("SSE Value: " + SSE)
+
         println(s"Finished iteration " + K + " (delta = $tempDist)")
       }
+      sseValues(K) = SSE
 
       println("**************************Iteration " + K + " **********************")
-      println("Final centers:")
-      kPoints.foreach(println)
-      println("Points and centers")
-      closest.foreach(println)
+
       K = K + 1
+    }
+
+    println("______SEE Values_______")
+    for(i<-1 until 10){
+      println("K:"+i+" SSE: "+sseValues(i))
+
     }
 
     spark.stop()

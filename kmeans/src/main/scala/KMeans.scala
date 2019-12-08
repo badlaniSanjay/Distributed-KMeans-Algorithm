@@ -52,6 +52,7 @@ object KMeans {
       .getOrCreate()
     val lines = spark.read.textFile(args(0)).rdd.filter(data => data.split(",").length == 2)
     val data = lines.map(parseVector _).cache()
+
     var K = 1
     val convergeDist = args(2).toDouble
 

@@ -1,4 +1,3 @@
-
 import org.apache.spark.sql.SparkSession
 import breeze.linalg.{DenseVector, Vector, squaredDistance}
 import org.apache.spark.rdd.RDD
@@ -58,6 +57,7 @@ object KMeans {
       .getOrCreate()
 
     val lines = spark.read.textFile(args(0)).rdd.filter(data => data.split(",").length == 2)
+
     val data = lines.map(parseVector _).cache()
     var K = 1
     val convergeDist = args(2).toDouble
@@ -69,10 +69,8 @@ object KMeans {
 
       val value = getSSEValues(tempDist, convergeDist, K, data, kPoints)
       sseValues(K) = value
-
       K = K + 1
     }
-
 
     println("______SEE Values_______")
     for (i <- 1 until 10) {
@@ -97,27 +95,30 @@ object KMeans {
     var tempDistMutable = tempDist
     var SSE = 0.0
 
+    var outputPoints : RDD[(Int,Iterable[Vector[Double]])] = null
+
     var closest = data.map(p => (closestPoint(p, kPoints), (p, 1)))
     while (tempDistMutable > convergeDist) {
       //Compute the closest center to each point
       closest = data.map(p => (closestPoint(p, kPoints), (p, 1)))
+
       val pointStats = closest.reduceByKey { case ((p1, c1), (p2, c2)) => (p1 + p2, c1 + c2) }
       val pointsInACluster = closest.groupByKey().mapValues(_.map(_._1))
       val newPoints = pointStats.map { pair =>
         (pair._1, pair._2._1 * (1.0 / pair._2._2))
       }.collectAsMap()
-
-
       tempDistMutable = 0.0
       for (i <- 0 until K) {
         tempDistMutable += squaredDistance(kPoints(i), newPoints(i))
       }
+
 
       for (newP <- newPoints) {
         kPoints(newP._1) = newP._2
       }
 
       SSE = 0.0
+      outputPoints = pointsInACluster
       for (i <- 0 until K) {
         val list = pointsInACluster.lookup(i)
         for (l <- list) {
@@ -127,6 +128,7 @@ object KMeans {
         }
       }
     }
+    outputPoints.saveAsTextFile("output"+K)
 
     SSE
   }

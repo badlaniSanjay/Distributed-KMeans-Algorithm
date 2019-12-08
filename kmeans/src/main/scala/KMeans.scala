@@ -1,5 +1,6 @@
 import org.apache.spark.sql.SparkSession
 import breeze.linalg.{DenseVector, Vector, squaredDistance}
+import org.apache.log4j.LogManager
 import org.apache.spark.rdd.RDD
 
 
@@ -10,7 +11,6 @@ import org.apache.spark.rdd.RDD
  */
 object KMeans {
   def parseVector(line: String): Vector[Double] = {
-    System.out.println("The Line Received " + line)
     DenseVector(line.split(',').map(_.toDouble))
   }
 
@@ -44,37 +44,41 @@ object KMeans {
    * @param args are command line arguments, that take in
    */
   def main(args: Array[String]) {
-
-    if (args.length < 3) {
-      System.err.println("Usage: SparkKMeans <file> <k> <convergeDist>")
-      System.exit(1)
-    }
+    val logger: org.apache.log4j.Logger = LogManager.getRootLogger()
+    //    if (args.length < 3) {
+    //      System.err.println("Usage: SparkKMeans <file> <k> <convergeDist>")
+    //      System.exit(1)
+    //    }
 
     val spark = SparkSession
       .builder
       .appName("KMeans")
-      .master("local[4]")
+      .config("spark.driver.memory", "8g")
+      .config("spark.executor.memory", "8g")
+      .config("spark.yarn.executor.memoryOverhead", "4096")
       .getOrCreate()
 
-    val lines = spark.read.textFile(args(0)).rdd.filter(data => data.split(",").length == 2)
+    val sc = spark.sparkContext
+
+    val lines = sc.textFile(args(0)).filter(data => data.split(",").length == 2)
 
     val data = lines.map(parseVector _).cache()
     var K = 1
-    val convergeDist = args(2).toDouble
+    val convergeDist = 0.5 //args(2).toDouble
     val sseValues = new Array[Double](11)
 
     while (K <= 10) {
       val kPoints = data.takeSample(withReplacement = false, K, 42)
       val tempDist = 1.0
 
-      val value = getSSEValues(tempDist, convergeDist, K, data, kPoints)
+      val value = getSSEValues(tempDist, convergeDist, K, data, kPoints, args)
       sseValues(K) = value
       K = K + 1
     }
 
     println("______SEE Values_______")
     for (i <- 1 until 10) {
-      println("K:" + i + " SSE: " + sseValues(i))
+      logger.info("K:" + i + " SSE: " + sseValues(i))
 
     }
     spark.stop()
@@ -91,11 +95,11 @@ object KMeans {
    * @param kPoints      are the centroids of cluster
    */
   def getSSEValues(tempDist: Double, convergeDist: Double, K: Int, data: RDD[Vector[Double]], kPoints:
-  Array[Vector[Double]]): Double = {
+  Array[Vector[Double]], args: Array[String]): Double = {
     var tempDistMutable = tempDist
     var SSE = 0.0
 
-    var outputPoints : RDD[(Int,Iterable[Vector[Double]])] = null
+    var outputPoints: RDD[(Int, Iterable[Vector[Double]])] = null
 
     var closest = data.map(p => (closestPoint(p, kPoints), (p, 1)))
     while (tempDistMutable > convergeDist) {
@@ -118,7 +122,8 @@ object KMeans {
       }
 
       SSE = 0.0
-      outputPoints = pointsInACluster
+
+
       for (i <- 0 until K) {
         val list = pointsInACluster.lookup(i)
         for (l <- list) {
@@ -127,8 +132,14 @@ object KMeans {
           }
         }
       }
+      if (tempDistMutable <= convergeDist && K == 7) {
+        outputPoints = pointsInACluster
+        val rddCount = outputPoints.count().toInt
+
+        outputPoints.repartition(rddCount).saveAsTextFile(args(1))
+      }
     }
-    outputPoints.saveAsTextFile("output"+K)
+
 
     SSE
   }

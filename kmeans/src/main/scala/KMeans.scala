@@ -45,10 +45,6 @@ object KMeans {
    */
   def main(args: Array[String]) {
     val logger: org.apache.log4j.Logger = LogManager.getRootLogger()
-    //    if (args.length < 3) {
-    //      System.err.println("Usage: SparkKMeans <file> <k> <convergeDist>")
-    //      System.exit(1)
-    //    }
 
     val spark = SparkSession
       .builder
@@ -76,8 +72,8 @@ object KMeans {
       K = K + 1
     }
 
-    println("______SEE Values_______")
-    for (i <- 1 until 10) {
+    logger.info("______SEE Values_______")
+    for (i <- 1 until 11) {
       logger.info("K:" + i + " SSE: " + sseValues(i))
 
     }

@@ -29,10 +29,6 @@ object LocalKMeans {
       System.exit(1)
     }
 
-//    System.out.println("--------------------"+nline(1, "local_input/k_values").glom.map(_.size).first)
-//    System.out.println("--------------------"+nline(2, "local_input/k_values").glom.map(_.size).first)
-//    System.out.println("--------------------"+nline(3, "local_input/k_values").glom.map(_.size).first)
-
     val spark = SparkSession
       .builder
       .appName("KMeans")
@@ -43,17 +39,9 @@ object LocalKMeans {
 
     val sc = spark.sparkContext
 
-//    val sc = SparkContext.getOrCreate
     val conf = new Configuration(sc.hadoopConfiguration)
     conf.setInt("mapreduce.input.lineinputformat.linespermap", 1);
     val convergeDist = args(2).toDouble
-//    val spark = SparkSession
-//      .builder
-//      .appName("KMeans")
-//      .master("local[4]")
-//      .getOrCreate()
-//    val textFile = spark.read.textFile(args(0)).rdd.filter(data => data.split(",").length == 2)
-
 
     val lines = sc.newAPIHadoopFile("local_input/k_values",
       classOf[NLineInputFormat], classOf[LongWritable], classOf[Text], conf
@@ -62,59 +50,20 @@ object LocalKMeans {
 
     val textFile = sc.textFile("input")
     var crimeLocation = textFile.flatMap(line => line.split(" ")).filter(data => data.split(",").length == 2)
-//          .map(word =>{ (word.split(",")(0), word.split(",")(1))})
 
 
 
     var newCrimeLocation = crimeLocation.collect()
-
-
-
     newLines.sparkContext.broadcast(newCrimeLocation)
-//    var tempRDD = sc.parallelize(1 to 100)
-//
-//    var updated = newLines.mapPartitions{case (a)=>{
-//      val myList = a.toList
-//
-//      myList.map(x => {
-//       newCrimeLocation.map{case(k:String)=>{
-//          k+"->->"+x
-//        }}
-//      }).iterator
-//    }
-//    }
 
-//    updated.saveAsTextFile("output")
-//    var updated = newLines.mapPartitions(x => {kMeans(x, newCrimeLocation, 0.5).iterator})
     val newLinesList = newLines.collect().toList
-
-//
-//    for(eachValueOfK <- newLinesList){
-//      val K = eachValueOfK.toInt
-////      kMeansMethod(K, sc.parallelize(newCrimeLocation), convergeDist)
-//      System.out.println("-----------"+K)
-//      tempFunction(newLines)
-//    }
-//    tempFunction(newLines, tempRDD)
-//    newLines.saveAsTextFile("output")
-
 
     kMeansMethod(newLinesList, sc.parallelize(newCrimeLocation), convergeDist, newLines)
   }
 
-  def tempFunction(lines:RDD[String],tempRDD:RDD[Int] ) ={
-//    lines.saveAsTextFile("output")
-    var temp = tempRDD.map(x => ""+x)
-    val merged = lines.union(temp)
-    merged.saveAsTextFile("output")
-  }
 
   def parseVector(line: String): Vector[Double] = {
-//    System.out.println("The Line Received " + line)
     DenseVector(line.split(',')
-
-      //        .map(x => x.length)
-      //        .flatMap(x => x)
       .filter(data => data.toString.matches("[-+]?([0-9]*\\.[0-9]+|[0-9]+)"))
       .map(data => {
         if (data.length() == 0 || data.toString.equals("")) {
@@ -122,8 +71,7 @@ object LocalKMeans {
         } else data
       })
       .map(_.toDouble))
-    //    line.split(',').filter(data => !data.toString.equals(""))
-    //      .filter(x => numericReg.pattern.matcher(x).matches).map(_.toDouble)
+
   }
 
   def closestPoint(p: Vector[Double], centers: Array[Vector[Double]]): Int = {
@@ -192,12 +140,7 @@ object LocalKMeans {
       }
 
       println("**************************Iteration " + K + " **********************")
-      println("Final centers:")
-//      kPoints.foreach(println)
-      println("Points and centers")
-//      closest.foreach(println)
       closest.saveAsTextFile("output"+K)
-//      newLines.saveAsTextFile("output"+)
       println("For "+ K +" The SSE value is  "+ SSE)
     }
   }

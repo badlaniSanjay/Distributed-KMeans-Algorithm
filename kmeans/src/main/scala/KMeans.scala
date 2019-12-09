@@ -129,14 +129,14 @@ object KMeans {
           }
         }
       }
-      if (tempDistMutable <= convergeDist && K == 7) {
+      if (tempDistMutable <= convergeDist && K == 9) {
         outputPoints = pointsInACluster
         val rddCount = outputPoints.count().toInt
-
+        val clusterComposition = outputPoints.mapValues(v=>v.size)
+        clusterComposition.saveAsTextFile(args(1)+"Composition")
         outputPoints.repartition(rddCount).saveAsTextFile(args(1))
       }
     }
-
 
     SSE
   }

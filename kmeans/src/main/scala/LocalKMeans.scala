@@ -110,7 +110,7 @@ object LocalKMeans {
   }
 
   def parseVector(line: String): Vector[Double] = {
-    System.out.println("The Line Received " + line)
+//    System.out.println("The Line Received " + line)
     DenseVector(line.split(',')
 
       //        .map(x => x.length)
@@ -193,12 +193,11 @@ object LocalKMeans {
 
       println("**************************Iteration " + K + " **********************")
       println("Final centers:")
-      kPoints.foreach(println)
+//      kPoints.foreach(println)
       println("Points and centers")
-      closest.foreach(println)
-      closest.map(x => (K, x))
-//      closest.saveAsTextFile("output")
-      newLines.saveAsTextFile("output")
+//      closest.foreach(println)
+      closest.saveAsTextFile("output"+K)
+//      newLines.saveAsTextFile("output"+)
       println("For "+ K +" The SSE value is  "+ SSE)
     }
   }

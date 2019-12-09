@@ -33,7 +33,17 @@ object LocalKMeans {
 //    System.out.println("--------------------"+nline(2, "local_input/k_values").glom.map(_.size).first)
 //    System.out.println("--------------------"+nline(3, "local_input/k_values").glom.map(_.size).first)
 
-    val sc = SparkContext.getOrCreate
+    val spark = SparkSession
+      .builder
+      .appName("KMeans")
+      .config("spark.driver.memory", "8g")
+      .config("spark.executor.memory", "8g")
+      .config("spark.yarn.executor.memoryOverhead", "4096")
+      .getOrCreate()
+
+    val sc = spark.sparkContext
+
+//    val sc = SparkContext.getOrCreate
     val conf = new Configuration(sc.hadoopConfiguration)
     conf.setInt("mapreduce.input.lineinputformat.linespermap", 1);
     val convergeDist = args(2).toDouble
@@ -61,20 +71,20 @@ object LocalKMeans {
 
 
     newLines.sparkContext.broadcast(newCrimeLocation)
-    var tempRDD = sc.parallelize(1 to 100)
+//    var tempRDD = sc.parallelize(1 to 100)
+//
+//    var updated = newLines.mapPartitions{case (a)=>{
+//      val myList = a.toList
+//
+//      myList.map(x => {
+//       newCrimeLocation.map{case(k:String)=>{
+//          k+"->->"+x
+//        }}
+//      }).iterator
+//    }
+//    }
 
-    var updated = newLines.mapPartitions{case (a)=>{
-      val myList = a.toList
-
-      myList.map(x => {
-       newCrimeLocation.map{case(k:String)=>{
-          k+"->->"+x
-        }}
-      }).iterator
-    }
-    }
-
-    updated.saveAsTextFile("output")
+//    updated.saveAsTextFile("output")
 //    var updated = newLines.mapPartitions(x => {kMeans(x, newCrimeLocation, 0.5).iterator})
     val newLinesList = newLines.collect().toList
 
@@ -142,14 +152,19 @@ object LocalKMeans {
       val kPoints = data.takeSample(withReplacement = false, K, 42)
       var tempDist = 1.0
       var closest = data.map(p => (closestPoint(p, kPoints), (p, 1)))
+      var pointsInACluster = closest.groupByKey().mapValues(_.map(_._1))
+      var  pointStats = closest.reduceByKey { case ((p1, c1), (p2, c2)) => (p1 + p2, c1 + c2) }
+      var newPoints = pointStats.map { pair =>
+        (pair._1, pair._2._1 * (1.0 / pair._2._2))
+      }.collectAsMap()
 
       while (tempDist > convergeDist) {
         //Compute the closest center to each point
         closest = data.map(p => (closestPoint(p, kPoints), (p, 1)))
+        pointsInACluster = closest.groupByKey().mapValues(_.map(_._1))
+        pointStats = closest.reduceByKey { case ((p1, c1), (p2, c2)) => (p1 + p2, c1 + c2) }
 
-        val pointStats = closest.reduceByKey { case ((p1, c1), (p2, c2)) => (p1 + p2, c1 + c2) }
-
-        val newPoints = pointStats.map { pair =>
+        newPoints = pointStats.map { pair =>
           (pair._1, pair._2._1 * (1.0 / pair._2._2))
         }.collectAsMap()
 
@@ -166,6 +181,16 @@ object LocalKMeans {
         println(s"Finished iteration " + K + " (delta = $tempDist)")
       }
 
+      var SSE = 0.0
+      for (i <- 0 until K) {
+        val list = pointsInACluster.lookup(i)
+        for (l <- list) {
+          for (litem <- l) {
+            SSE += squaredDistance(litem, newPoints(i))
+          }
+        }
+      }
+
       println("**************************Iteration " + K + " **********************")
       println("Final centers:")
       kPoints.foreach(println)
@@ -174,6 +199,7 @@ object LocalKMeans {
       closest.map(x => (K, x))
 //      closest.saveAsTextFile("output")
       newLines.saveAsTextFile("output")
+      println("For "+ K +" The SSE value is  "+ SSE)
     }
   }
 }

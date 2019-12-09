@@ -59,6 +59,7 @@ object KMeans {
     val lines = sc.textFile(args(0)).filter(data => data.split(",").length == 2)
 
     val data = lines.map(parseVector _).cache()
+
     var K = 1
     val convergeDist = 0.5 //args(2).toDouble
     val sseValues = new Array[Double](11)
